@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'PingFangSC';
+  src: url('/fonts/PingFangSC-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+}
+
+.dark :root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: 'PingFangSC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}
+
+.dark body {
+  @apply bg-slate-900 text-slate-100;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'PingFangSC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  font-weight: 600;
+}
