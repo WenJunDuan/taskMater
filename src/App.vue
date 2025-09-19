@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import AppShell from '@/components/layout/AppShell.vue'
-import DashboardView from '@/views/DashboardView.vue'
-import { useAppStore } from '@/stores/app'
+import { onMounted } from "vue"
+import { useRouter } from "vue-router"
+import AppShell from "@/components/layout/AppShell.vue"
+import { useAppStore } from "@/stores/app"
 
 const store = useAppStore()
+const router = useRouter()
 
-onMounted(() => {
+const handleNavigateHome = () => {
+  router.push({ name: "dashboard" })
+}
+onMounted(() => {
   store.setTheme(store.theme)
 })
 </script>
 
 <template>
-  <AppShell>
-    <DashboardView />
+  <AppShell @navigate-home="handleNavigateHome">
+    <RouterView />
   </AppShell>
 </template>

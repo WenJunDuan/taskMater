@@ -1,9 +1,22 @@
 <script setup lang="ts">
+import { computed, ref, type Component } from "vue"
+import { useRoute, useRouter } from "vue-router"
+import {
+  BoltIcon,
+  ChevronDownIcon,
+  ClipboardDocumentListIcon,
+  HomeIcon,
+  InboxArrowDownIcon,
+  PlusCircleIcon,
+  Squares2X2Icon,
+} from "@heroicons/vue/24/outline"
+import { projectSummaries } from "@/data/projects"
+
 interface NavItem {
   label: string
-  icon?: string
-  badge?: number
-  active?: boolean
+  icon?: Component
+  path?: string
+  action?: () => void
 }
 
 interface NavSection {
@@ -11,51 +24,123 @@ interface NavSection {
   items: NavItem[]
 }
 
-const navSections: NavSection[] = [
+const MAX_PROJECT_DISPLAY = 5
+
+const emit = defineEmits<{
+  (e: "navigate-home"): void
+}>()
+
+const router = useRouter()
+const route = useRoute()
+
+const collapsedSections = ref<Record<string, boolean>>({ 项目: false })
+
+const projectTotal = computed(() => projectSummaries.length)
+
+const projectNavItems = computed<NavItem[]>(() => {
+  const base = projectSummaries.slice(0, MAX_PROJECT_DISPLAY).map<NavItem>((project) => ({
+    label: project.name,
+    path: `/projects?focus=${project.id}`,
+  }))
+
+  if (projectTotal.value > MAX_PROJECT_DISPLAY) {
+    base.push({
+      label: `查看全部项目 (${projectTotal.value})`,
+      path: "/projects",
+    })
+  }
+
+  return base
+})
+
+const navSections = computed<NavSection[]>(() => [
   {
-    title: '导航',
+    title: "导航",
     items: [
-      { label: '仪表盘', icon: '🏠', active: true },
-      { label: '项目空间', icon: '📁' },
-      { label: '任务视图', icon: '🗂️' },
-      { label: '知识库', icon: '🧠' },
+      { label: "仪表盘", icon: HomeIcon, path: "/" },
+      { label: "项目空间", icon: Squares2X2Icon, path: "/projects" },
+      { label: "任务视图", icon: ClipboardDocumentListIcon, path: "/task-view" },
     ],
   },
   {
-    title: '项目',
-    items: [
-      { label: '任务大师重构', badge: 12 },
-      { label: 'AI 协作助手', badge: 7 },
-      { label: '用户调研计划', badge: 3 },
-    ],
+    title: "项目",
+    items: collapsedSections.value["项目"] ? [] : projectNavItems.value,
   },
   {
-    title: '快速操作',
+    title: "快捷操作",
     items: [
-      { label: '新建任务', icon: '＋' },
-      { label: '新建项目', icon: '🛠️' },
-      { label: '导入数据', icon: '⬆️' },
+      { label: "创建待办", icon: PlusCircleIcon },
+      { label: "新建项目", icon: BoltIcon },
+      { label: "收集反馈", icon: InboxArrowDownIcon },
     ],
   },
-]
+])
+
+const handleBrandClick = () => {
+  emit("navigate-home")
+  if (route.path !== "/") {
+    router.push({ name: "dashboard" })
+  }
+}
+
+const normalizePath = (path?: string) => path?.split("?")[0] ?? null
+
+const isActive = (item: NavItem) => {
+  const current = route.path
+  const target = normalizePath(item.path)
+  return target ? target === current : false
+}
+
+const handleNavItem = (item: NavItem) => {
+  if (item.path) {
+    router.push(item.path)
+    return
+  }
+  item.action?.()
+}
+
+const isSectionCollapsed = (title: string) => collapsedSections.value[title] ?? false
+
+const toggleSection = (title: string) => {
+  if (!(title in collapsedSections.value)) return
+  collapsedSections.value = {
+    ...collapsedSections.value,
+    [title]: !collapsedSections.value[title],
+  }
+}
 </script>
 
 <template>
   <div class="app-shell">
     <aside class="app-shell__sidebar">
-      <header class="sidebar__brand">Task Master</header>
+      <header class="sidebar__brand" @click="handleBrandClick">
+        <div class="brand-icon">TM</div>
+        <span class="brand-title">Task Master</span>
+      </header>
       <nav class="sidebar__nav">
         <section v-for="section in navSections" :key="section.title" class="sidebar__section">
-          <h3 class="sidebar__section-title">{{ section.title }}</h3>
-          <ul>
+          <div
+            class="sidebar__section-header"
+            :class="{ 'sidebar__section-header--clickable': section.title === '项目' }"
+            @click="section.title === '项目' && toggleSection(section.title)"
+          >
+            <h3 class="sidebar__section-title">{{ section.title }}</h3>
+            <template v-if="section.title === '项目'">
+              <ChevronDownIcon
+                class="sidebar__section-toggle"
+                :class="{ 'sidebar__section-toggle--collapsed': isSectionCollapsed(section.title) }"
+              />
+            </template>
+          </div>
+          <ul v-show="section.title !== '项目' || !isSectionCollapsed(section.title)">
             <li
               v-for="item in section.items"
               :key="item.label"
-              :class="['sidebar__item', { 'sidebar__item--active': item.active }]"
+              :class="['sidebar__item', { 'sidebar__item--active': isActive(item) }]"
+              @click="handleNavItem(item)"
             >
-              <span class="sidebar__item-icon" v-if="item.icon">{{ item.icon }}</span>
+              <component v-if="item.icon" :is="item.icon" class="sidebar__item-icon" />
               <span class="sidebar__item-label">{{ item.label }}</span>
-              <span v-if="item.badge" class="sidebar__item-badge">{{ item.badge }}</span>
             </li>
           </ul>
         </section>
@@ -87,9 +172,37 @@ const navSections: NavSection[] = [
 }
 
 .sidebar__brand {
-  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  padding: 0 0.5rem;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  border-radius: 0.9rem;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar__brand:hover {
+  background: rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 70%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.brand-title {
+  font-weight: 700;
 }
 
 .sidebar__nav {
@@ -104,19 +217,44 @@ const navSections: NavSection[] = [
   gap: 0.5rem;
 }
 
+.sidebar__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.sidebar__section-header--clickable {
+  cursor: pointer;
+}
+
+.sidebar__section-header--clickable:hover .sidebar__section-title {
+  color: #1d4ed8;
+}
+
 .sidebar__section-title {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   font-weight: 600;
   text-transform: uppercase;
   color: #64748b;
-  padding: 0 0.5rem;
+}
+
+.sidebar__section-toggle {
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.sidebar__section-toggle--collapsed {
+  transform: rotate(-90deg);
 }
 
 .sidebar__item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.75rem;
   padding: 0.55rem 0.75rem;
   border-radius: 0.75rem;
@@ -137,22 +275,17 @@ const navSections: NavSection[] = [
 }
 
 .sidebar__item-icon {
-  font-size: 1rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  color: #475569;
+}
+
+.sidebar__item--active .sidebar__item-icon {
+  color: #1d4ed8;
 }
 
 .sidebar__item-label {
   flex: 1;
-}
-
-.sidebar__item-badge {
-  min-width: 1.5rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 9999px;
-  background: rgba(148, 163, 184, 0.24);
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #475569;
-  text-align: center;
 }
 
 .app-shell__main {
@@ -187,7 +320,7 @@ const navSections: NavSection[] = [
     gap: 1rem;
   }
   .sidebar__section {
-    min-width: 180px;
+    min-width: 200px;
   }
 }
 </style>

@@ -31,8 +31,7 @@ const selectedDate = ref(toISODate())
   <div class="dashboard">
     <header class="dashboard__header">
       <div>
-        <h1>任务大师控制台</h1>
-        <p>当前冲刺关键指标一览</p>
+        <h3>今天也要加油哦！</h3>
       </div>
     </header>
 

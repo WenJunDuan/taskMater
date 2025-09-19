@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue"
-import type { Calendar, CalendarOptions } from "@fullcalendar/core"
-import FullCalendar from "@fullcalendar/vue3"
-import dayGridPlugin from "@fullcalendar/daygrid"
-import interactionPlugin from "@fullcalendar/interaction"
+import { computed, defineAsyncComponent, onMounted, ref, watch } from "vue"
+import type { Calendar, CalendarOptions, PluginDef } from "@fullcalendar/core"
 import zhCnLocale from "@fullcalendar/core/locales/zh-cn"
 
 const props = defineProps<{
@@ -18,6 +15,22 @@ const calendarRef = ref<{ getApi: () => Calendar } | null>(null)
 const currentDate = ref(new Date())
 const selectedKey = ref("")
 const cellMap = new Map<string, HTMLElement>()
+
+const calendarPlugins = ref<PluginDef[]>([])
+
+const FullCalendar = defineAsyncComponent(async () => {
+  const [{ default: fullCalendar }, { default: dayGrid }, { default: interaction }] = await Promise.all([
+    import('@fullcalendar/vue3'),
+    import('@fullcalendar/daygrid'),
+    import('@fullcalendar/interaction'),
+  ])
+  calendarPlugins.value = [dayGrid, interaction]
+  return fullCalendar
+})
+
+
+const HIGHLIGHT_HOST_CLASS = "liquid-glass-highlight"
+const LIQUID_GLASS_SURFACE_CLASS = "liquid-glass-surface"
 
 const formatKey = (date: Date) => {
   const year = date.getFullYear()
@@ -64,7 +77,11 @@ const weekLabel = computed(() => `当前第 ${getISOWeekNumber(parseKey(selected
 
 function highlightSelectedDay() {
   cellMap.forEach((el, dateKey) => {
-    el.classList.toggle("calendar-day--selected", dateKey === selectedKey.value)
+    const isSelected = dateKey === selectedKey.value
+    el.classList.toggle("calendar-day--selected", isSelected)
+    el.classList.toggle(HIGHLIGHT_HOST_CLASS, isSelected)
+    const frame = el.querySelector(".fc-daygrid-day-frame") as HTMLElement | null
+    frame?.classList.toggle(LIQUID_GLASS_SURFACE_CLASS, isSelected)
   })
 }
 
@@ -75,7 +92,7 @@ const setSelectedKey = (key: string) => {
 }
 
 const calendarOptions = computed<CalendarOptions>(() => ({
-  plugins: [dayGridPlugin, interactionPlugin],
+  plugins: calendarPlugins.value.length ? calendarPlugins.value : [],
   locale: zhCnLocale,
   initialView: "dayGridMonth",
   initialDate: parseKey(selectedKey.value),
@@ -150,7 +167,6 @@ onMounted(() => {
 })
 </script>
 
-
 <template>
   <div class="calendar-card">
     <div class="calendar-head">
@@ -159,9 +175,9 @@ onMounted(() => {
         <p class="calendar-week">{{ weekLabel }}</p>
       </div>
       <div class="calendar-controls">
-        <button @click="gotoPrev">‹ 上月</button>
+        <button @click="gotoPrev">上一月</button>
         <button @click="gotoToday">今天</button>
-        <button @click="gotoNext">下月 ›</button>
+        <button @click="gotoNext">下一月</button>
       </div>
     </div>
 
@@ -170,11 +186,17 @@ onMounted(() => {
     </div>
 
     <div class="calendar-body">
-      <FullCalendar ref="calendarRef" :options="calendarOptions" />
+      <Suspense>
+        <template #default>
+          <FullCalendar ref="calendarRef" :options="calendarOptions" />
+        </template>
+        <template #fallback>
+          <div class="calendar-loading">日历加载中…</div>
+        </template>
+      </Suspense>
     </div>
   </div>
 </template>
-
 
 <style scoped>
 .calendar-card {
@@ -187,6 +209,13 @@ onMounted(() => {
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
   padding: 1.3rem 1.5rem;
   color: #0f172a;
+}
+
+@media (max-width: 768px) {
+  .calendar-card {
+    padding: 1.1rem;
+    border-radius: 1rem;
+  }
 }
 
 .calendar-head {
@@ -253,6 +282,14 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.calendar-loading {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
 :deep(.fc) {
   border: none;
   background: transparent;
@@ -312,11 +349,12 @@ onMounted(() => {
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
+
+
 :deep(.fc-daygrid-day-frame:hover) {
   background: rgba(148, 163, 184, 0.12);
   color: #0f172a;
 }
-
 
 :deep(.fc .fc-daygrid-day.fc-day-today){
   background: rgba(255, 255, 255, 0.24);
@@ -324,22 +362,15 @@ onMounted(() => {
 }
 
 :deep(.fc-day-today .fc-daygrid-day-number) {
-  background: rgba(37, 99, 235, 0.18);
   color: #1d4ed8;
-}
-
-:deep(.calendar-day--selected .fc-daygrid-day-frame) {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(59, 130, 246, 0.28));
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.18);
-}
-
-:deep(.calendar-day--selected .fc-daygrid-day-number) {
-  background: transparent;
-  color: #ffffff;
 }
 
 :deep(.fc-daygrid-day-events) {
   display: none !important;
+}
+
+:deep(.fc-highlight) {
+  border-radius: 0.9rem;
 }
 
 :deep(.fc-view-harness) {
@@ -351,3 +382,12 @@ onMounted(() => {
 }
 
 </style>
+
+
+
+
+
+
+
+
+
