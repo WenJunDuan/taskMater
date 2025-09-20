@@ -1,16 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, type Component } from "vue"
+import { computed, type Component } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import {
-  BoltIcon,
-  ChevronDownIcon,
   ClipboardDocumentListIcon,
   HomeIcon,
-  InboxArrowDownIcon,
   PlusCircleIcon,
+  BoltIcon,
   Squares2X2Icon,
 } from "@heroicons/vue/24/outline"
-import { projectSummaries } from "@/data/projects"
 
 interface NavItem {
   label: string
@@ -24,54 +21,30 @@ interface NavSection {
   items: NavItem[]
 }
 
-const MAX_PROJECT_DISPLAY = 5
 
 const emit = defineEmits<{
   (e: "navigate-home"): void
+  (e: "open-create-task"): void
+  (e: "open-create-project"): void
 }>()
 
 const router = useRouter()
 const route = useRoute()
 
-const collapsedSections = ref<Record<string, boolean>>({ 项目: false })
-
-const projectTotal = computed(() => projectSummaries.length)
-
-const projectNavItems = computed<NavItem[]>(() => {
-  const base = projectSummaries.slice(0, MAX_PROJECT_DISPLAY).map<NavItem>((project) => ({
-    label: project.name,
-    path: `/projects?focus=${project.id}`,
-  }))
-
-  if (projectTotal.value > MAX_PROJECT_DISPLAY) {
-    base.push({
-      label: `查看全部项目 (${projectTotal.value})`,
-      path: "/projects",
-    })
-  }
-
-  return base
-})
-
 const navSections = computed<NavSection[]>(() => [
   {
     title: "导航",
     items: [
-      { label: "仪表盘", icon: HomeIcon, path: "/" },
+      { label: "控制台", icon: HomeIcon, path: "/" },
       { label: "项目空间", icon: Squares2X2Icon, path: "/projects" },
-      { label: "任务视图", icon: ClipboardDocumentListIcon, path: "/task-view" },
+      { label: "任务", icon: ClipboardDocumentListIcon, path: "/task-view" },
     ],
-  },
-  {
-    title: "项目",
-    items: collapsedSections.value["项目"] ? [] : projectNavItems.value,
   },
   {
     title: "快捷操作",
     items: [
-      { label: "创建待办", icon: PlusCircleIcon },
-      { label: "新建项目", icon: BoltIcon },
-      { label: "收集反馈", icon: InboxArrowDownIcon },
+      { label: "新建任务", icon: PlusCircleIcon, action: () => emit("open-create-task") },
+      { label: "新建项目", icon: BoltIcon, action: () => emit("open-create-project") },
     ],
   },
 ])
@@ -86,9 +59,10 @@ const handleBrandClick = () => {
 const normalizePath = (path?: string) => path?.split("?")[0] ?? null
 
 const isActive = (item: NavItem) => {
-  const current = route.path
+  if (!item.path) return false
+
   const target = normalizePath(item.path)
-  return target ? target === current : false
+  return target ? target === route.path : false
 }
 
 const handleNavItem = (item: NavItem) => {
@@ -99,15 +73,6 @@ const handleNavItem = (item: NavItem) => {
   item.action?.()
 }
 
-const isSectionCollapsed = (title: string) => collapsedSections.value[title] ?? false
-
-const toggleSection = (title: string) => {
-  if (!(title in collapsedSections.value)) return
-  collapsedSections.value = {
-    ...collapsedSections.value,
-    [title]: !collapsedSections.value[title],
-  }
-}
 </script>
 
 <template>
@@ -119,20 +84,10 @@ const toggleSection = (title: string) => {
       </header>
       <nav class="sidebar__nav">
         <section v-for="section in navSections" :key="section.title" class="sidebar__section">
-          <div
-            class="sidebar__section-header"
-            :class="{ 'sidebar__section-header--clickable': section.title === '项目' }"
-            @click="section.title === '项目' && toggleSection(section.title)"
-          >
+          <div class="sidebar__section-header">
             <h3 class="sidebar__section-title">{{ section.title }}</h3>
-            <template v-if="section.title === '项目'">
-              <ChevronDownIcon
-                class="sidebar__section-toggle"
-                :class="{ 'sidebar__section-toggle--collapsed': isSectionCollapsed(section.title) }"
-              />
-            </template>
           </div>
-          <ul v-show="section.title !== '项目' || !isSectionCollapsed(section.title)">
+          <ul>
             <li
               v-for="item in section.items"
               :key="item.label"
@@ -151,6 +106,7 @@ const toggleSection = (title: string) => {
       <slot />
     </main>
   </div>
+
 </template>
 
 <style scoped>
@@ -225,14 +181,6 @@ const toggleSection = (title: string) => {
   padding: 0 0.5rem;
 }
 
-.sidebar__section-header--clickable {
-  cursor: pointer;
-}
-
-.sidebar__section-header--clickable:hover .sidebar__section-title {
-  color: #1d4ed8;
-}
-
 .sidebar__section-title {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
@@ -241,16 +189,7 @@ const toggleSection = (title: string) => {
   color: #64748b;
 }
 
-.sidebar__section-toggle {
-  width: 1rem;
-  height: 1rem;
-  color: #94a3b8;
-  transition: transform 0.2s ease;
-}
 
-.sidebar__section-toggle--collapsed {
-  transform: rotate(-90deg);
-}
 
 .sidebar__item {
   display: flex;
