@@ -14,10 +14,10 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '项目空间' },
   },
   {
-    path: '/task-view',
-    name: 'task-view',
-    component: () => import('@/views/PlaceholderView.vue'),
-    meta: { title: '任务视图' },
+    path: '/todos',
+    name: 'todos',
+    component: () => import('@/views/TodoView.vue'),
+    meta: { title: '待办清单' },
   },
 ]
 
@@ -27,5 +27,3 @@ const router = createRouter({
 })
 
 export default router
-
-

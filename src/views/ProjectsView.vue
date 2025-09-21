@@ -1,205 +1,99 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue"
-import { useRoute, useRouter } from "vue-router"
-import type { ProjectStatus } from "@/data/projects"
-import { projectSummaries } from "@/data/projects"
+import { computed } from 'vue'
+import type { ProjectStatus } from '@/data/projects'
+import { projectSummaries } from '@/data/projects'
 
-const statusLabels: Record<ProjectStatus, string> = {
-  active: "进行中",
-  planning: "规划中",
-  "on-hold": "暂停",
-}
+const statusConfigs: { status: ProjectStatus; label: string; tone: string }[] = [
+  { status: 'active', label: '进行中', tone: 'status-pill status-pill--active' },
+  { status: 'planning', label: '规划中', tone: 'status-pill status-pill--planning' },
+  { status: 'on-hold', label: '暂缓', tone: 'status-pill status-pill--hold' },
+]
 
-const statusTone: Record<ProjectStatus, string> = {
-  active: "status-pill status-pill--active",
-  planning: "status-pill status-pill--planning",
-  "on-hold": "status-pill status-pill--hold",
-}
-
-const route = useRoute()
-const router = useRouter()
-
-const filterStatus = ref<ProjectStatus | "all">("all")
-const expandedProjectIds = ref<string[]>([])
-
-const filteredProjects = computed(() => {
-  if (filterStatus.value === "all") return projectSummaries
-  return projectSummaries.filter((project) => project.status === filterStatus.value)
-})
-
-const metrics = computed(() => {
-  const total = projectSummaries.length
-  const activeCount = projectSummaries.filter((p) => p.status === "active").length
-  const upcomingDue = projectSummaries
-    .filter((p) => p.status !== "on-hold")
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    .slice(0, 3)
-    .map((p) => ({ id: p.id, name: p.name, dueDate: p.dueDate }))
-  const avgProgress = Math.round(
-    projectSummaries.reduce((acc, item) => acc + item.progress, 0) / Math.max(total, 1),
-  )
-
-  return { total, activeCount, avgProgress, upcomingDue }
-})
-
-const isExpanded = (id: string) => expandedProjectIds.value.includes(id)
-
-const toggleProject = (id: string) => {
-  if (isExpanded(id)) {
-    expandedProjectIds.value = expandedProjectIds.value.filter((item) => item !== id)
-  } else {
-    expandedProjectIds.value = [...expandedProjectIds.value, id]
-  }
-}
-
-const expandProject = (id: string | undefined) => {
-  if (!id) return
-  if (!isExpanded(id)) {
-    expandedProjectIds.value = [...expandedProjectIds.value, id]
-  }
-  nextTick(() => {
-    const element = document.querySelector(`[data-project-id="${id}"]`)
-    element?.scrollIntoView({ behavior: "smooth", block: "start" })
-  })
-}
-
-const handleFocusFromRoute = (focusId: unknown) => {
-  const id = Array.isArray(focusId) ? focusId[0] : focusId
-  if (typeof id !== "string" || !id) return
-  expandProject(id)
-  router.replace({ query: { ...route.query, focus: undefined } })
-}
-
-watch(
-  () => route.query.focus,
-  (value) => {
-    handleFocusFromRoute(value)
-  },
-  { immediate: true },
+const statusSections = computed(() =>
+  statusConfigs
+    .map((config) => ({
+      ...config,
+      projects: projectSummaries.filter((project) => project.status === config.status),
+    }))
+    .filter((section) => section.projects.length > 0),
 )
 
-onMounted(() => {
-  expandedProjectIds.value = projectSummaries.slice(0, 2).map((item) => item.id)
-})
+const formatDate = (input: string) => {
+  const date = new Date(input)
+  if (Number.isNaN(date.getTime())) return input
+  return new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(date)
+}
+
+const formatProgress = (value: number) => `${value}%`
 </script>
 
 <template>
   <div class="projects-view">
     <header class="projects-header">
-      <div>
+      <div class="projects-header__text">
         <h1>项目空间</h1>
-        <p>追踪团队关键项目，聚焦进展与风险。</p>
-      </div>
-      <div class="projects-metrics">
-        <div class="metric-card">
-          <span class="metric-label">总项目</span>
-          <span class="metric-value">{{ metrics.total }}</span>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">进行中</span>
-          <span class="metric-value metric-value--positive">{{ metrics.activeCount }}</span>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">平均进度</span>
-          <span class="metric-value">{{ metrics.avgProgress }}%</span>
-        </div>
+        <p>查看团队关键项目的实时进展，随时转入待办列表处理任务。</p>
       </div>
     </header>
 
-    <section class="projects-toolbar">
-      <div class="filter-group">
-        <button
-          class="filter-chip"
-          :class="{ 'filter-chip--active': filterStatus === 'all' }"
-          @click="filterStatus = 'all'"
-        >
-          全部
-        </button>
-        <button
-          class="filter-chip"
-          :class="{ 'filter-chip--active': filterStatus === 'active' }"
-          @click="filterStatus = 'active'"
-        >
-          进行中
-        </button>
-        <button
-          class="filter-chip"
-          :class="{ 'filter-chip--active': filterStatus === 'planning' }"
-          @click="filterStatus = 'planning'"
-        >
-          规划中
-        </button>
-        <button
-          class="filter-chip"
-          :class="{ 'filter-chip--active': filterStatus === 'on-hold' }"
-          @click="filterStatus = 'on-hold'"
-        >
-          暂停
-        </button>
-      </div>
+    <section v-for="section in statusSections" :key="section.status" class="project-section">
+      <header class="project-section__header">
+        <h2>{{ section.label }}</h2>
+        <span class="status-count">{{ section.projects.length }}</span>
+      </header>
 
-      <div class="upcoming-list">
-        <h2>近期节点</h2>
-        <ul>
-          <li v-for="item in metrics.upcomingDue" :key="item.id">
-            <span class="upcoming-name">{{ item.name }}</span>
-            <span class="upcoming-date">{{ item.dueDate }}</span>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="projects-grid">
-      <article
-        v-for="project in filteredProjects"
-        :key="project.id"
-        :data-project-id="project.id"
-        class="project-card"
-      >
-        <header class="project-card__header">
-          <div>
-            <h3>{{ project.name }}</h3>
-            <p>{{ project.description }}</p>
-          </div>
-          <button
-            type="button"
-            class="project-card__toggle"
-            @click="toggleProject(project.id)"
-            :aria-expanded="isExpanded(project.id)"
-          >
-            {{ isExpanded(project.id) ? '收起' : '展开' }}
-          </button>
-        </header>
-
-        <div class="project-card__meta">
-          <span :class="statusTone[project.status]">{{ statusLabels[project.status] }}</span>
-  active: "status-pill status-pill--active",
-  planning: "status-pill status-pill--planning",
-  "on-hold": "status-pill status-pill--hold",
-        </div>
-
-        <transition name="project-collapse">
-          <div v-show="isExpanded(project.id)" class="project-card__body">
-            <div class="project-card__stats">
-              <div>
-                <span class="stat-label">迭代</span>
-                <span class="stat-value">{{ project.sprintCount }}</span>
-              </div>
-              <div>
-                <span class="stat-label">待办</span>
-                <span class="stat-value">{{ project.backlogCount }}</span>
-              </div>
-              <div>
-                <span class="stat-label">最近更新</span>
-                <span class="stat-value">{{ project.lastUpdate }}</span>
-              </div>
+      <div class="project-grid">
+        <article v-for="project in section.projects" :key="project.id" class="project-card">
+          <div class="project-card__head">
+            <div>
+              <h3>{{ project.name }}</h3>
+              <p>{{ project.description }}</p>
             </div>
-            <div class="project-card__tags">
-              <span v-for="tag in project.tags" :key="tag" class="project-tag">#{{ tag }}</span>
+            <span :class="section.tone">{{ section.label }}</span>
+          </div>
+
+          <dl class="project-card__meta">
+            <div>
+              <dt>负责人</dt>
+              <dd>{{ project.owner }}</dd>
+            </div>
+            <div>
+              <dt>截止</dt>
+              <dd>{{ formatDate(project.dueDate) }}</dd>
+            </div>
+            <div>
+              <dt>冲刺数</dt>
+              <dd>{{ project.sprintCount }}</dd>
+            </div>
+            <div>
+              <dt>待办</dt>
+              <dd>{{ project.backlogCount }}</dd>
+            </div>
+          </dl>
+
+          <div class="project-card__progress">
+            <div class="project-card__progress-label">
+              <span>整体进度</span>
+              <strong>{{ formatProgress(project.progress) }}</strong>
+            </div>
+            <div class="progress-bar">
+              <span class="progress-bar__value" :style="{ width: formatProgress(project.progress) }" />
             </div>
           </div>
-        </transition>
-      </article>
+
+          <ul class="project-card__tags">
+            <li v-for="tag in project.tags" :key="tag">{{ tag }}</li>
+          </ul>
+          <footer class="project-card__footer">
+            <RouterLink
+              :to="{ name: 'todos', query: { projectId: project.id } }"
+              class="project-card__link"
+            >
+              查看待办
+            </RouterLink>
+          </footer>
+        </article>
+      </div>
     </section>
   </div>
 </template>
@@ -209,227 +103,146 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  padding-bottom: 2rem;
 }
 
 .projects-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 2rem;
-}
-
-.projects-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.projects-header p {
-  margin-top: 0.5rem;
-  color: #64748b;
-  font-size: 0.95rem;
-}
-
-.projects-metrics {
-  display: flex;
-  gap: 1rem;
-}
-
-.metric-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.85rem 1rem;
-  border-radius: 0.9rem;
-  background: #ffffff;
-  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.06);
-  min-width: 120px;
-}
-
-.metric-label {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-.metric-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.metric-value--positive {
-  color: #16a34a;
-}
-
-.projects-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
-  gap: 1.5rem;
-}
-
-.filter-group {
-  display: inline-flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.filter-chip {
-  padding: 0.4rem 0.9rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: #ffffff;
-  color: #475569;
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.filter-chip--active {
-  border-color: rgba(37, 99, 235, 0.4);
-  color: #1d4ed8;
-  background: rgba(37, 99, 235, 0.12);
-}
-
-.filter-chip:not(.filter-chip--active):hover {
-  background: rgba(148, 163, 184, 0.12);
-}
-
-.upcoming-list {
-  background: #ffffff;
-  border-radius: 0.9rem;
-  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.06);
-  padding: 1rem 1.25rem;
-}
-
-.upcoming-list h2 {
-  font-size: 0.9rem;
-  color: #475569;
-  margin-bottom: 0.75rem;
-  font-weight: 600;
-}
-
-.upcoming-list ul {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.upcoming-name {
-  font-weight: 600;
-  color: #1f2937;
+.projects-header__text h1 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-.upcoming-date {
-  font-size: 0.8rem;
+.projects-header__text p {
   color: #64748b;
-  margin-left: 0.5rem;
+  font-size: 0.95rem;
 }
 
-.projects-grid {
-  display: grid;
-  gap: 1rem;
-}
-
-.project-card {
-  background: #ffffff;
-  border-radius: 1rem;
-  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.06);
-  padding: 1.25rem 1.5rem;
+.project-section {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
-.project-card__header {
+.project-section__header {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
+  align-items: center;
+  gap: 0.6rem;
 }
 
-.project-card__header h3 {
-  font-size: 1.1rem;
+.project-section__header h2 {
+  font-size: 1.15rem;
   font-weight: 600;
   color: #0f172a;
 }
 
-.project-card__header p {
-  margin-top: 0.35rem;
+.status-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 12px 40px -24px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.project-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.project-card__head h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.project-card__head p {
+  margin-top: 0.4rem;
   color: #64748b;
   font-size: 0.85rem;
 }
 
-.project-card__toggle {
-  padding: 0.35rem 0.85rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: rgba(248, 250, 252, 0.9);
-  font-size: 0.75rem;
-  color: #475569;
-  transition: all 0.2s ease;
-}
-
-.project-card__toggle:hover {
-  background: rgba(37, 99, 235, 0.12);
-  border-color: rgba(37, 99, 235, 0.32);
-  color: #1d4ed8;
-}
-
 .project-card__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.project-card__meta dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  margin-bottom: 0.2rem;
+}
+
+.project-card__meta dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.project-card__progress {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.project-card__progress-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 0.8rem;
   color: #475569;
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.status-pill--active {
-  background: rgba(34, 197, 94, 0.15);
-  color: #15803d;
-}
-
-.status-pill--planning {
-  background: rgba(37, 99, 235, 0.12);
+.project-card__progress-label strong {
+  font-size: 0.92rem;
   color: #1d4ed8;
 }
 
-.status-pill--hold {
-  background: rgba(148, 163, 184, 0.16);
-  color: #475569;
+.progress-bar {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.2);
+  overflow: hidden;
 }
 
-.project-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.project-card__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1rem;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: #94a3b8;
-}
-
-.stat-value {
+.progress-bar__value {
   display: block;
-  margin-top: 0.35rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #0f172a;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb 0%, #60a5fa 100%);
+  transition: width 0.3s ease;
 }
 
 .project-card__tags {
@@ -438,41 +251,69 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-.project-tag {
-  padding: 0.2rem 0.6rem;
-  background: rgba(148, 163, 184, 0.16);
+.project-card__tags li {
+  padding: 0.18rem 0.6rem;
   border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
   font-size: 0.75rem;
+}
+
+.project-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.project-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.75rem;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.project-card__link:hover {
+  background: rgba(37, 99, 235, 0.18);
+  transform: translateY(-1px);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.status-pill--active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.status-pill--planning {
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+}
+
+.status-pill--hold {
+  background: rgba(148, 163, 184, 0.18);
   color: #475569;
 }
 
-.project-collapse-enter-active,
-.project-collapse-leave-active {
-  transition: all 0.2s ease;
-}
-
-.project-collapse-enter-from,
-.project-collapse-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-@media (max-width: 1024px) {
-  .projects-header {
-    flex-direction: column;
-  }
-  .projects-toolbar {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 768px) {
-  .projects-metrics {
-    flex-wrap: wrap;
-  }
   .project-card {
-    padding: 1rem 1.25rem;
+    padding: 1.1rem;
+  }
+
+  .project-card__head {
+    flex-direction: column;
   }
 }
 </style>
-

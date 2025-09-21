@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, type Component } from "vue"
-import { useRoute, useRouter } from "vue-router"
+import { computed, type Component } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   ClipboardDocumentListIcon,
   HomeIcon,
   PlusCircleIcon,
   BoltIcon,
   Squares2X2Icon,
-} from "@heroicons/vue/24/outline"
+} from '@heroicons/vue/24/outline'
 
 interface NavItem {
   label: string
@@ -21,11 +21,10 @@ interface NavSection {
   items: NavItem[]
 }
 
-
 const emit = defineEmits<{
-  (e: "navigate-home"): void
-  (e: "open-create-task"): void
-  (e: "open-create-project"): void
+  (e: 'navigate-home'): void
+  (e: 'open-create-task'): void
+  (e: 'open-create-project'): void
 }>()
 
 const router = useRouter()
@@ -33,30 +32,30 @@ const route = useRoute()
 
 const navSections = computed<NavSection[]>(() => [
   {
-    title: "导航",
+    title: '导航',
     items: [
-      { label: "控制台", icon: HomeIcon, path: "/" },
-      { label: "项目空间", icon: Squares2X2Icon, path: "/projects" },
-      { label: "任务", icon: ClipboardDocumentListIcon, path: "/task-view" },
+      { label: '仪表盘', icon: HomeIcon, path: '/' },
+      { label: '项目空间', icon: Squares2X2Icon, path: '/projects' },
+      { label: '待办清单', icon: ClipboardDocumentListIcon, path: '/todos' },
     ],
   },
   {
-    title: "快捷操作",
+    title: '快捷操作',
     items: [
-      { label: "新建任务", icon: PlusCircleIcon, action: () => emit("open-create-task") },
-      { label: "新建项目", icon: BoltIcon, action: () => emit("open-create-project") },
+      { label: '新建任务', icon: PlusCircleIcon, action: () => emit('open-create-task') },
+      { label: '新建项目', icon: BoltIcon, action: () => emit('open-create-project') },
     ],
   },
 ])
 
 const handleBrandClick = () => {
-  emit("navigate-home")
-  if (route.path !== "/") {
-    router.push({ name: "dashboard" })
+  emit('navigate-home')
+  if (route.path !== '/') {
+    router.push({ name: 'dashboard' })
   }
 }
 
-const normalizePath = (path?: string) => path?.split("?")[0] ?? null
+const normalizePath = (path?: string) => path?.split('?')[0] ?? null
 
 const isActive = (item: NavItem) => {
   if (!item.path) return false
@@ -72,7 +71,6 @@ const handleNavItem = (item: NavItem) => {
   }
   item.action?.()
 }
-
 </script>
 
 <template>
@@ -106,7 +104,6 @@ const handleNavItem = (item: NavItem) => {
       <slot />
     </main>
   </div>
-
 </template>
 
 <style scoped>
@@ -131,12 +128,10 @@ const handleNavItem = (item: NavItem) => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 1.15rem;
-  font-weight: 700;
-  padding: 0.25rem 0.75rem;
-  cursor: pointer;
+  padding: 0.5rem 0.75rem;
   border-radius: 0.9rem;
   transition: background 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
 }
 
 .sidebar__brand:hover {
@@ -188,8 +183,6 @@ const handleNavItem = (item: NavItem) => {
   text-transform: uppercase;
   color: #64748b;
 }
-
-
 
 .sidebar__item {
   display: flex;
