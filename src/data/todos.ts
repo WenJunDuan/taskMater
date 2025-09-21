@@ -4,7 +4,7 @@ export const todoItems: TodoItem[] = [
   {
     id: 'todo-001',
     title: '完成项目概览仪表板设计',
-    description: '梳理核心 KPI 组件与布局，输出设计稿。',
+    description: '整理核心 KPI 组件与布局，输出设计稿。',
     status: 'in-progress',
     projectId: 'proj-001',
     priority: 'high',
@@ -15,7 +15,7 @@ export const todoItems: TodoItem[] = [
     id: 'todo-002',
     title: '梳理 AI 协作流程待办',
     description: '对照协议 v9.0，标记必须的 MCP 工具调用流程。',
-    status: 'todo',
+    status: 'planned',
     projectId: 'proj-002',
     priority: 'high',
     dueDate: '2025-09-23',
@@ -24,7 +24,7 @@ export const todoItems: TodoItem[] = [
   {
     id: 'todo-003',
     title: '准备用户研究访谈提纲',
-    status: 'todo',
+    status: 'planned',
     projectId: 'proj-003',
     priority: 'medium',
     dueDate: '2025-09-24',
@@ -42,7 +42,7 @@ export const todoItems: TodoItem[] = [
   {
     id: 'todo-005',
     title: '移动端性能基线测试',
-    status: 'todo',
+    status: 'planned',
     projectId: 'proj-005',
     priority: 'low',
     dueDate: '2025-09-27',
